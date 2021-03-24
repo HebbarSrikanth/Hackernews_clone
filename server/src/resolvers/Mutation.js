@@ -11,6 +11,9 @@ const post = async (parent, args, context) => {
             postedBy: { connect: { id: userId } },
         },
     });
+
+    context.pubsub.publish("NEW_LINK", newLink);
+
     return newLink;
 };
 
@@ -64,4 +67,33 @@ const deleteLink = async (parent, args, context) => {
     return deleteUser;
 };
 
-module.exports = { post, signin, login, deleteLink, update };
+const vote = async (parent, args, context) => {
+    console.log("vote");
+    //Fetch the user id from the context that comes from the jwt
+    const { userId } = context;
+
+    //check if the user has already voted for the link
+    const anyvote = await context.prisma.vote.findUnique({
+        where: {
+            linkId_userId: {
+                linkId: parseInt(args.linkId),
+                userId: userId,
+            },
+        },
+    });
+
+    if (anyvote) throw new Error("User has already voted for the link");
+
+    const newVote = await context.prisma.vote.create({
+        data: {
+            link: { connect: { id: parseInt(args.linkId) } },
+            user: { connect: { id: userId } },
+        },
+    });
+
+    context.pubsub.publish("NEW_VOTE", newVote);
+
+    return newVote;
+};
+
+module.exports = { post, signin, login, deleteLink, update, vote };
