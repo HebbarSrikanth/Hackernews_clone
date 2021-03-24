@@ -3,47 +3,26 @@ const { PrismaClient } = require("@prisma/client");
 const path = require("path");
 const fs = require("fs");
 const prisma = new PrismaClient();
+//Resolvers Function
+const Query = require("./resolvers/Query");
+const Mutation = require("./resolvers/Mutation");
+const User = require("./resolvers/User");
+const Link = require("./resolvers/Link");
+//Util Function to fetch the user id from the payload
+const { getUserID } = require("./utlis/util");
 
-const resolvers = {
-    Query: {
-        info: () => `This is a graphql API`,
-        feed: (parent, args, context) => {
-            return context.prisma.link.findMany();
-        },
-    },
-    Mutation: {
-        post: async (parent, args, context) => {
-            const newLink = await context.prisma.link.create({
-                data: {
-                    url: args.url,
-                    description: args.description,
-                },
-            });
-            return newLink;
-        },
-        update: (parent, args) => {
-            let link = links.find((val) => val.id === args.id);
-            if (link) {
-                link.description = args.description;
-                link.url = args.url;
-                links.push(link);
-                return link;
-            }
-        },
-        delete: (parent, args) => {
-            let link = links.find((val) => val.id === args.id);
-            if (link) {
-                links = links.filter((val) => val.id !== args.id);
-                return link;
-            } else return null;
-        },
-    },
-};
+const resolvers = { Query, Mutation, User, Link };
 
 const server = new ApolloServer({
     typeDefs: fs.readFileSync(path.join(__dirname, "schema.graphql"), "utf8"),
     resolvers,
-    context: { prisma },
+    context: async ({ req }) => {
+        return {
+            ...req,
+            prisma,
+            userId: req && req.headers.authorization ? await getUserID(req) : null,
+        };
+    },
 });
 
 server.listen().then(({ url }) => console.log(`Server is running on ${url}`));
